@@ -379,13 +379,46 @@ def traxial_E():
     # Создаем массивы значений только до этого индекса
     x_values = df_triaxial['epsilon_1'][:end_index]
     y_values = df_triaxial['Eff. Axial Stress (kPa)'][:end_index]
-    print(end_index)
-    print(x_values, y_values)
-    # Интерполируем только эти значения методом локальных полиномов
-    interp_func1 = interp1d(y_values, x_values, kind='slinear')
+    print('индекс конечного элемента', end_index)
+    print('значения массива для сортирорвки' , x_values, y_values)
 
-    # Производим интерполяцию для значения q_1_6
-    x_1_6d = interp_func1(q_1_6)
+
+       # Создаем DataFrame из массивов x и y
+    df = pd.DataFrame({'x': x_values, 'y': y_values})
+
+    # Удаляем дубликаты по значениям x и y
+    df_unique = df.drop_duplicates()
+
+        # Проверяем наличие пустых значений
+    if df_unique.isnull().values.any():
+        print("В датафрейме есть пустые значения.")
+        # Удаляем строки с пустыми значениями
+        df_unique = df_unique.dropna()
+
+    # Получаем уникальные значения x и y
+    unique_x_values = df_unique['x'].values
+    unique_y_values = df_unique['y'].values
+
+    print('значения уникального массива для сортирорвки' , unique_x_values, unique_y_values)
+
+        # Удаляем дубликаты по значениям x
+    unique_x_values, unique_indices_x = np.unique(unique_x_values, return_index=True)
+    unique_y_values = unique_y_values[unique_indices_x]
+
+    print('значения уникального массива для сортировки', unique_x_values, unique_y_values)
+
+
+    try:
+        # Интерполируем только эти значения методом локальных полиномов
+        interp_func1 = interp1d(unique_y_values, unique_x_values, kind='slinear')
+
+        # Производим интерполяцию для значения q_1_6
+        x_1_6d = interp_func1(q_1_6)
+    except ValueError as e:
+        print("Ошибка:", e)
+        print("Присваиваем x_1_6d значение x_1_6")
+        x_1_6d = x_1_6
+        
     print(f"q_1_6: {q_1_6}, x_1_6d: {x_1_6d}")
 
     # Вычисляем E
@@ -616,11 +649,28 @@ def import_file_gds():
     # Например, для чтения нового файла:
     with open(new_file, 'r') as file:
         data = pd.read_csv(new_file, skiprows=57, skipfooter=3)
-        data = data[['Axial Displacement (mm)', 'Deviator Stress (kPa)', 'Back Volume (mm?)','Eff. Axial Stress (kPa)', 'Load Cell (kN)', 'Radial Volume (mm?)', 'Time since start of test (s)', 'Time since start of stage (s)', 'Stage Number' ]] #загрузил толь эти столбцы
+        data = data[['Axial Displacement (mm)', 'Deviator Stress (kPa)', 'Back Volume (mm?)','Eff. Axial Stress (kPa)', 'Load Cell (kN)', 'Radial Volume (mm?)', 'Time since start of test (s)', 'Time since start of stage (s)', 'Stage Number' ]] #загрузил толь эти столбцы   
     df = data
 
     print("Данные загружены.")
     print(df)
+
+
+def import_file_geo():
+    global df
+    file_path = filedialog.askopenfilename()
+    # Загрузить данные (возможно используется кодтровака, и нужно указать другой разделитель между данными df = pd.read_csv('sinusoida.csv', encoding='utf-8', quotechar='"')
+    print("Загрузка данных...")
+    source_file = file_path
+
+    data = pd.read_csv(source_file, sep='\t', decimal=',')
+    data = data[['ChVerticalDeformation_mm', 'ChDeviator_kPa', 'ChPoreVolumeBottom_cm3', 'ChVerticalEffectivePress_kPa', 'ChVerticalLoadInner_N', 'ChRadialDeformation_mm', 'Time', 'StageTime', 'StageId']]
+    data = data.rename(columns={'ChVerticalDeformation_mm': 'Axial Displacement (mm)', 'ChDeviator_kPa': 'Deviator Stress (kPa)', 'ChPoreVolumeBottom_cm3': 'Back Volume (mm?)', 'ChVerticalEffectivePress_kPa': 'Eff. Axial Stress (kPa)', 'ChVerticalLoadInner_N': 'Load Cell (kN)', 'ChRadialDeformation_mm': 'Radial Volume (mm?)', 'Time': 'Time since start of test (s)', 'StageTime': 'Time since start of stage (s)', 'StageId': 'Stage Number' })  #переименовал столбцы
+    df = data
+
+    
+
+    print("Данные загружены.")
 
 def save1():
     global df # Объявление, что вы используете глобальную переменную df
@@ -763,6 +813,9 @@ def import_and_save_gds():
     import_file_gds()
     save1()
 
+def import_and_save_geo():
+    import_file_geo()
+    save1()
 
 
 
@@ -917,8 +970,10 @@ file_menu = tk.Menu(menu_bar, tearoff=0)
 menu_bar.add_cascade(label="Файл", menu=file_menu)
 
 file_menu.add_command(label="Импортировать GDS", command=import_and_save_gds)
+file_menu.add_command(label="Импортировать Геотек", command=import_and_save_geo)
 file_menu.add_separator()
 file_menu.add_command(label="Выход", command=root.quit)
+
 
 
 
